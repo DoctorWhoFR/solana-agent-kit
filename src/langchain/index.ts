@@ -1,6 +1,6 @@
 import { PublicKey } from "@solana/web3.js";
 import Decimal from "decimal.js";
-import { Tool } from "langchain/tools";
+import { StructuredTool, Tool } from "langchain/tools";
 import {
   GibworkCreateTaskReponse,
   PythFetchPriceResponse,
@@ -10,6 +10,143 @@ import { create_image } from "../tools/create_image";
 import { BN } from "@coral-xyz/anchor";
 import { FEE_TIERS } from "../tools";
 import { toJSON } from "../utils/toJSON";
+import { z } from "zod";
+
+export class SolanaCreateTokenAccountTool extends StructuredTool {
+  name = "solana_create_token_account";
+  description = `Create a token account for a given token mint address`;
+
+  schema = z.object({
+    mintAddress: z.string().describe("The mint address of the token"),
+    walletAddress: z.string().describe("The wallet address to create the token account for, if not provided, the agent's wallet will be used").optional(),
+  });
+
+  constructor(private solanaKit: SolanaAgentKit) {
+    super();
+  }
+
+  protected async _call(input: { mintAddress: string, walletAddress?: string }): Promise<string> {
+    try {
+      console.log("test", input.mintAddress)
+
+      const tokenAccount = await this.solanaKit.createTokenAccount(new PublicKey(input.mintAddress), input.walletAddress ? new PublicKey(input.walletAddress) : undefined);
+
+      return JSON.stringify({
+        status: "success",
+        tokenAccount: tokenAccount.toBase58(),
+      });
+    } catch (error: any) {
+      console.log(error);
+      return JSON.stringify({
+        status: "error",
+        message: error.message,
+        code: error.code || "UNKNOWN_ERROR",
+      });
+    }
+  }
+}
+
+export class SolanaMintTokenTool extends StructuredTool {
+  name = "solana_mint_token";
+  description = `Mint tokens to a specified token account.`;
+
+  schema = z.object({
+    tokenAddress: z.string().describe("The mint address of the token"),
+    tokenAccount: z.string().describe("The token account to mint tokens to"),
+    amount: z.number().describe("The amount of tokens to mint"),
+    decimals: z.number().describe("The number of decimals the token has").default(8),
+  });
+
+  constructor(private solanaKit: SolanaAgentKit) {
+    super();
+  }
+
+  protected async _call(input: { tokenAddress: string, tokenAccount: string, amount: number, decimals: number }): Promise<string> {
+    try {
+      const txid = await this.solanaKit.mintToken(
+        new PublicKey(input.tokenAddress),
+        new PublicKey(input.tokenAccount),
+        input.amount,
+        input.decimals,
+      );
+      return JSON.stringify({
+        status: "success",
+        txid: txid,
+      });
+    } catch (error: any) {
+      return JSON.stringify({
+        status: "error",
+        message: error.message,
+        code: error.code || "UNKNOWN_ERROR",
+      });
+    }
+  }
+}
+
+export class SolanaFindTokenAccountTool extends Tool {
+  name = "solana_find_token_account";
+  description = `Find the token account for the specified mint address and wallet address.
+  If you want to find the token account for agent wallet, you don't need to provide the walletAddress.
+
+  Inputs ( input is a JSON string ):
+  tokenAddress: string, eg "So11111111111111111111111111111111111111112" (required)
+  walletAddress?: string, eg "8x2dR8Mpzuz2YqyZyZjUbYWKSWesBo5jMx2Q9Y86udVk" (optional)`;
+
+  constructor(private solanaKit: SolanaAgentKit) {
+    super();
+  }
+
+  protected async _call(input: string): Promise<string> {
+    try {
+      const parsedInput = JSON.parse(input);
+      const tokenAddress = new PublicKey(parsedInput.tokenAddress);
+      const walletAddress = parsedInput.walletAddress ? new PublicKey(parsedInput.walletAddress) : undefined;
+      const tokenAccount = await this.solanaKit.findTokenAccount(tokenAddress, walletAddress);
+      console.log('tokenAccount: ', tokenAccount.toBase58());
+      return JSON.stringify({
+        status: "success",
+        tokenAccount: tokenAccount.toBase58(),
+      });
+    } catch (error: any) {
+      return JSON.stringify({
+        status: "error",
+        message: error.message,
+        code: error.code || "UNKNOWN_ERROR",
+      });
+    }
+  }
+}
+
+export class SolanaBalanceTokenTool extends Tool {
+  name = "solana_balance_token";
+  description = `Get the balance of an SPL token for the specified token account.
+
+  Inputs:
+  tokenAddress: string, eg "So11111111111111111111111111111111111111112" (required)`;
+
+  constructor(private solanaKit: SolanaAgentKit) {
+    super();
+  }
+
+  protected async _call(input: string): Promise<string> {
+    try {
+      const tokenAddress = new PublicKey(input);
+      const balance = await this.solanaKit.getBalanceToken(tokenAddress);
+
+      return JSON.stringify({
+        status: "success",
+        balance: balance,
+        token: input || "SOL",
+      });
+    } catch (error: any) {
+      return JSON.stringify({
+        status: "error",
+        message: error.message,
+        code: error.code || "UNKNOWN_ERROR",
+      });
+    }
+  }
+}
 
 export class SolanaBalanceTool extends Tool {
   name = "solana_balance";
@@ -650,28 +787,32 @@ export class SolanaFetchPriceTool extends Tool {
   }
 }
 
-export class SolanaTokenDataTool extends Tool {
+export class SolanaTokenDataTool extends StructuredTool {
   name = "solana_token_data";
-  description = `Get the token data for a given token mint address
+  description = `Get the token data for a given token mint address`;
 
-  Inputs: mintAddress is required.
-  mintAddress: string, eg "So11111111111111111111111111111111111111112" (required)`;
+  schema = z.object({
+    mintAddress: z.string().describe("The mint address of the token"),
+    ShowVolume: z.boolean().describe("Whether to show the volume of the token, dont set true unless asked").default(false),
+    ShowPriceChange: z.boolean().describe("Whether to show the price change of the token, dont set true unless asked").default(false),
+  });
 
   constructor(private solanaKit: SolanaAgentKit) {
     super();
   }
 
-  protected async _call(input: string): Promise<string> {
+  protected async _call(input: { mintAddress: string, ShowVolume: boolean, ShowPriceChange: boolean }): Promise<string> {
     try {
-      const parsedInput = input.trim();
+      console.log("test", input.mintAddress)
 
-      const tokenData = await this.solanaKit.getTokenDataByAddress(parsedInput);
+      const tokenData = await this.solanaKit.getTokenDataByAddress(input.mintAddress, input.ShowVolume, input.ShowPriceChange);
 
       return JSON.stringify({
         status: "success",
         tokenData: tokenData,
       });
     } catch (error: any) {
+      console.log(error);
       return JSON.stringify({
         status: "error",
         message: error.message,
@@ -1232,6 +1373,10 @@ export class SolanaCreateGibworkTask extends Tool {
 export function createSolanaTools(solanaKit: SolanaAgentKit) {
   return [
     new SolanaBalanceTool(solanaKit),
+    new SolanaBalanceTokenTool(solanaKit),
+    new SolanaFindTokenAccountTool(solanaKit),
+    new SolanaMintTokenTool(solanaKit),
+    new SolanaCreateTokenAccountTool(solanaKit),
     new SolanaTransferTool(solanaKit),
     new SolanaDeployTokenTool(solanaKit),
     new SolanaDeployCollectionTool(solanaKit),

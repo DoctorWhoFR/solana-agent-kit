@@ -3,25 +3,49 @@ import { JupiterTokenData } from "../types";
 
 export async function getTokenDataByAddress(
   mint: PublicKey,
-): Promise<JupiterTokenData | undefined> {
+  ShowVolume: boolean = false,
+  ShowPriceChange: boolean = false,
+): Promise<any> {
   try {
+    console.log("tetst");
+    
     if (!mint) {
       throw new Error("Mint address is required");
     }
 
-    const response = await fetch("https://tokens.jup.ag/tokens?tags=verified", {
+    const response = await fetch("https://api.dexscreener.com/latest/dex/tokens/" + mint.toBase58(), {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
       },
     });
 
-    const data = (await response.json()) as JupiterTokenData[];
-    const token = data.find((token: JupiterTokenData) => {
-      return token.address === mint.toBase58();
-    });
+    const data = (await response.json());
+
+    const pairOne = data.pairs[0];
+    let token = {
+      url: pairOne.url,
+      name: pairOne.baseToken.name,
+      symbol: pairOne.baseToken.symbol,
+      priceUsd: pairOne.priceUsd,
+      priceNative: pairOne.priceNative,
+      volume: null,
+      priceChange: null,
+    }
+
+
+    if (ShowVolume) {
+      token.volume = pairOne.volume;
+    }
+
+    if (ShowPriceChange) {
+      token.priceChange = pairOne.priceChange;
+    }
+
     return token;
   } catch (error: any) {
+    console.log(error);
+
     throw new Error(`Error fetching token data: ${error.message}`);
   }
 }

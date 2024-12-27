@@ -6,6 +6,10 @@ import {
   deploy_collection,
   deploy_token,
   get_balance,
+  get_balance_token_accounts,
+  find_token_account,
+  mint_token,
+  create_token_account,
   getTPS,
   resolveSolDomain,
   getPrimaryDomain,
@@ -94,8 +98,29 @@ export class SolanaAgentKit {
     return deploy_collection(this, options);
   }
 
-  async getBalance(token_address?: PublicKey): Promise<number> {
-    return get_balance(this, token_address);
+  async getBalance(wallet_address?: PublicKey): Promise<number> {
+    return get_balance(this, wallet_address);
+  }
+
+  async getBalanceToken(token_address: PublicKey): Promise<number> {
+    return get_balance_token_accounts(this, token_address);
+  }
+
+  async findTokenAccount(token_address: PublicKey, wallet_address?: PublicKey): Promise<PublicKey> {
+    return find_token_account(this, token_address, wallet_address);
+  }
+
+  async createTokenAccount(token_address: PublicKey, wallet_address?: PublicKey): Promise<PublicKey> {
+    return create_token_account(this, token_address, wallet_address);
+  }
+
+  async mintToken(
+    token_address: PublicKey,
+    token_account: PublicKey,
+    amount: number,
+    decimals: number,
+  ): Promise<string> {
+    return mint_token(this, token_address, token_account, amount, decimals);
   }
 
   async mintNFT(
@@ -145,8 +170,10 @@ export class SolanaAgentKit {
 
   async getTokenDataByAddress(
     mint: string,
-  ): Promise<JupiterTokenData | undefined> {
-    return getTokenDataByAddress(new PublicKey(mint));
+    ShowVolume: boolean = false,
+    ShowPriceChange: boolean = false,
+  ): Promise<any> {
+    return getTokenDataByAddress(new PublicKey(mint), ShowVolume, ShowPriceChange);
   }
 
   async getTokenDataByTicker(
