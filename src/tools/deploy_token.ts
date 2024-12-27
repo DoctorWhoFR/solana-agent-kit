@@ -31,7 +31,7 @@ export async function deploy_token(
   symbol: string,
   decimals: number = 9,
   initialSupply?: number,
-): Promise<{ mint: PublicKey }> {
+): Promise<any> {
   try {
     // Create UMI instance from agent
     const umi = createUmi(agent.connection.rpcEndpoint).use(mplToolbox());
@@ -39,7 +39,6 @@ export async function deploy_token(
 
     // Create new token mint
     const mint = generateSigner(umi);
-
     let builder = createFungible(umi, {
       name,
       uri,
@@ -59,17 +58,17 @@ export async function deploy_token(
           mint: mint.publicKey,
           tokenStandard: TokenStandard.Fungible,
           tokenOwner: fromWeb3JsPublicKey(agent.wallet_address),
-          amount: initialSupply,
+          amount: initialSupply * Math.pow(10, decimals),
         }),
       );
     }
 
-    builder.sendAndConfirm(umi, { confirm: { commitment: "finalized" } });
+    await builder.sendAndConfirm(umi, { confirm: { commitment: "finalized" } });
 
     return {
       mint: toWeb3JsPublicKey(mint.publicKey),
     };
   } catch (error: any) {
-    throw new Error(`Token deployment failed: ${error.message}`);
+    throw new Error(error.message);
   }
 }

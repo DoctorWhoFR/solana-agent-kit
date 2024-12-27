@@ -262,10 +262,10 @@ export class SolanaDeployTokenTool extends Tool {
         decimals: parsedInput.decimals || 9,
       });
     } catch (error: any) {
+      
       return JSON.stringify({
         status: "error",
         message: error.message,
-        code: error.code || "UNKNOWN_ERROR",
       });
     }
   }
@@ -566,6 +566,7 @@ export class SolanaPumpfunTokenLaunchTool extends Tool {
    do not use this tool for any other purpose, or for creating SPL tokens.
    If the user asks you to chose the parameters, you should generate valid values.
    For generating the image, you can use the solana_create_image tool.
+   You can only this tool for Pump.fun token, do not use it for any other purpose.
 
    Inputs:
    tokenName: string, eg "PumpFun Token",
@@ -636,10 +637,29 @@ export class SolanaPumpfunTokenLaunchTool extends Tool {
   }
 }
 
+export class SolanaUploadFilePinataTool extends StructuredTool {
+  name = "solana_upload_content_file_pinata";
+  description = "Upload a content / file to Pinata and return the signed URL";
+
+  schema = z.object({
+    file_content: z.string().describe("The content of the file to upload"),
+    file_name: z.string().describe("The name of the file to upload"),
+    file_type: z.string().describe("The type of the file to upload"),
+  });
+
+  constructor(private solanaKit: SolanaAgentKit) {
+    super();
+  }
+
+  protected async _call(input: { file_content: string, file_name: string, file_type: string }): Promise<string> {
+    return await this.solanaKit.uploadFilePinata(input.file_content, input.file_name, input.file_type);
+  }
+}
+
 export class SolanaCreateImageTool extends Tool {
   name = "solana_create_image";
   description =
-    "Create an image using OpenAI's DALL-E. Input should be a string prompt for the image.";
+    "Create an image using OpenAI's DALL-E. Input should be a string prompt for the image. Display full image url without any truncation and no markdown. Dont decode the image url.";
 
   constructor(private solanaKit: SolanaAgentKit) {
     super();
@@ -659,9 +679,11 @@ export class SolanaCreateImageTool extends Tool {
       return JSON.stringify({
         status: "success",
         message: "Image created successfully",
-        ...result,
+        image_url: result.image,
       });
     } catch (error: any) {
+      console.log(error);
+      
       return JSON.stringify({
         status: "error",
         message: error.message,
@@ -1408,5 +1430,6 @@ export function createSolanaTools(solanaKit: SolanaAgentKit) {
     new SolanaGetMainDomain(solanaKit),
     new SolanaResolveAllDomainsTool(solanaKit),
     new SolanaCreateGibworkTask(solanaKit),
+    new SolanaUploadFilePinataTool(solanaKit),
   ];
 }

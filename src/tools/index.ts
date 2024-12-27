@@ -4,6 +4,7 @@ export * from "./deploy_collection";
 export * from "./get_balance";
 export * from "./get_balance_token";
 export * from "./find_token_account";
+export * from "./upload_file_pinata";
 export * from "./create_token_account";
 export * from "./mint_token";
 export * from "./mint_nft";

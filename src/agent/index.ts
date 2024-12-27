@@ -39,6 +39,7 @@ import {
   getOwnedAllDomains,
   resolveAllDomains,
   create_gibwork_task,
+  upload_file_pinata,
 } from "../tools";
 import {
   CollectionDeployment,
@@ -80,6 +81,10 @@ export class SolanaAgentKit {
   // Tool methods
   async requestFaucetFunds() {
     return request_faucet_funds(this);
+  }
+
+  async uploadFilePinata(file_content: string, file_name: string, file_type: string) {
+    return upload_file_pinata(this, file_content, file_name, file_type);
   }
 
   async deployToken(

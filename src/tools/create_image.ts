@@ -29,9 +29,11 @@ export async function create_image(
       n,
       size,
     });
+    
+    const encoded_url = decodeURIComponent(response.data.map((img: any) => img.url)[0]);
 
     return {
-      images: response.data.map((img: any) => img.url),
+      image: encoded_url,
     };
   } catch (error: any) {
     throw new Error(`Image generation failed: ${error.message}`);
